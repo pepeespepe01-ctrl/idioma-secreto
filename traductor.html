@@ -1,0 +1,205 @@
+import os, sys, webbrowser, smtplib
+from email.mime.text import MIMEText
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+# CONFIGURACIÓN DE LOS 2 ÚNICOS USUARIOS PERMITIDOS
+USUARIOS_AUTORIZADOS = {
+    "usuario1@gmail.com": "ContraseñaSecreta1",
+    "usuario2@gmail.com": "ContraseñaSecreta2"
+}
+
+# Configuración de tu cuenta de Gmail emisora
+GMAIL_EMISOR = "tu_correo_gmail@gmail.com"
+GMAIL_PASSWORD_APLICACION = "xxxx xxxx xxxx xxxx"  # Tu contraseña de aplicación de Google
+
+def enviar_aviso_gmail(correo_destino):
+    try:
+        msg = MIMEText(f"Alerta: Inicio de sesion correcto en el Traductor del Idioma 🫃 desde la cuenta {correo_destino}.")
+        msg['Subject'] = '🔑 Inicio de Sesion - Idioma 🫃'
+        msg['From'] = GMAIL_EMISOR
+        msg['To'] = correo_destino
+        server = smtplib.SMTP_SSL('://gmail.com', 465)
+        server.login(GMAIL_EMISOR, GMAIL_PASSWORD_APLICACION)
+        server.sendmail(GMAIL_EMISOR, [correo_destino], msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Error correo: {e}")
+        return False
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+    return response
+
+@app.route('/')
+def home(): return INTERFAZ_HTML_INTEGRADA
+
+@app.route('/login', methods=['POST', 'OPTIONS'])
+def login():
+    if request.method == 'OPTIONS': return jsonify({"success": True}), 200
+    data = request.json
+    email, password = data.get('email'), data.get('password')
+    if email in USUARIOS_AUTORIZADOS and USUARIOS_AUTORIZADOS[email] == password:
+        enviar_aviso_gmail(email)
+        return jsonify({"success": True, "message": "Acceso concedido."})
+    return jsonify({"success": False, "message": "Acceso denegado."})
+
+# INTERFAZ WEB MONOLÍTICA COMPACTA
+INTERFAZ_HTML_INTEGRADA = """<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traductor Oficial del Idioma 🫃</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #060913; color: #d1d5db; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { background-color: #111827; padding: 30px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.9); width: 100%; max-width: 720px; border: 1px solid #10b98133; }
+        h1 { text-align: center; color: #10b981; margin-top: 0; font-size: 26px; letter-spacing: 2px; text-transform: uppercase; }
+        .mode-selector { display: flex; gap: 10px; margin-bottom: 20px; background-color: #060913; padding: 6px; border-radius: 8px; }
+        .mode-btn { flex: 1; padding: 12px; background: none; border: none; color: #4b5563; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; text-transform: uppercase; }
+        .mode-btn.active { background-color: #111827; color: #10b981; box-shadow: 0 2px 8px rgba(16,185,129,0.2); }
+        label { display: block; margin: 15px 0 5px; font-weight: 600; color: #34d399; }
+        input[type="email"], input[type="password"], textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #060913; background-color: #060913; color: #ffffff; font-size: 16px; box-sizing: border-box; }
+        input[type="email"], input[type="password"] { margin-bottom: 15px; }
+        textarea { height: 110px; resize: none; font-family: monospace; }
+        .btn-execute { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; text-transform: uppercase; background-color: #10b981; color: #060913; margin-top: 20px; }
+        .btn-execute:hover { background-color: #059669; box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); }
+        .output-box { font-size: 20px; color: #6ee7b7; height: 130px; letter-spacing: 1px; }
+        #authPanel { max-width: 400px; width: 100%; }
+        #appPanel { display: none; }
+    </style>
+</head>
+<body>
+<div id="authPanel" class="container">
+    <h1>Acceso Restringido 🫃</h1>
+    <p style="text-align: center; color: #9ca3af; font-size: 14px;">Solo 2 registros permitidos en el sistema.</p>
+    <label for="userEmail">Correo Autorizado:</label>
+    <input type="email" id="userEmail" placeholder="ejemplo@gmail.com">
+    <label for="userPassword">Contraseña:</label>
+    <input type="password" id="userPassword" placeholder="********">
+    <button class="btn-execute" onclick="autenticarServidor()">Validar Acceso y Enviar Gmail</button>
+</div>
+<div id="appPanel" class="container">
+    <h1>Núcleo de Fusión: Idioma 🫃</h1>
+    <div class="mode-selector">
+        <button id="btnModoEncriptar" class="mode-btn active" onclick="cambiarModo(true)">Español ➔ Idioma 🫃</button>
+        <button id="btnModoDescifrar" class="mode-btn" onclick="cambiarModo(false)">Idioma 🫃 ➔ Español</button>
+    </div>
+    <label for="inputText" id="inputLabel">Texto de Entrada:</label>
+    <textarea id="inputText" placeholder="Escribe tu mensaje aquí..."></textarea>
+    <button class="btn-execute" onclick="procesar()">Transmutar al Idioma 🫃</button>
+    <label for="outputText" id="outputLabel">Matriz de Código Estructurado:</label>
+    <textarea id="outputText" class="output-box" readonly></textarea>
+</div>
+<script>
+    var modoEncriptar = true;
+    var claveInmutableInterna = "ZYN_MASTER_SECRET_2026_ESTRICT_PRO";
+    var mapaMutante = {
+        'A': 'ᔑ-0', 'B': '-.1', 'C': 'ᒧ.0', 'D': 'ᒪ-1', 'E': 'ᐱ..0', 'F': 'ᖷ.-1', 'G': 'ᒍ--0', 'H': 'ᒐ...1', 'I': 'ᓬ-.-0', 'J': 'ᖋ.-.1', 'K': 'ᔕ--.0', 'M': 'ᔮ...0', 'N': 'ᘯ---1', 'O': '.-..0', 'P': 'ᑫ--0', 'R': 'ᖇ-..1', 'S': 'ᔓ.-0', 'T': 'ᖶ--1', 'U': 'ᑌ..-0', 'V': 'ᕓ--..1', 'X': '᙮.-.-0', 'Y': 'ᖿ.0', 'Z': '-1', 'W': 'ᕓᕓ-01', 'Ñ': 'ᘯᔑ.-0', 'Q': 'ᑫᔑ..1', 'L': 'ᒪᒧ--1',
+        'a': 'ᔑ.-1', 'b': '-.0', 'c': 'ᒧ-1', 'd': 'ᒪ..0', 'e': 'ᐱ--1', 'f': 'ᖷ.-0', 'g': 'ᒍ..1', 'h': 'ᒐ---0', 'i': 'ᓬ.-1', 'j': 'ᖋ-.-0', 'k': 'ᔕ...1', 'm': 'ᔮ--0', 'n': 'ᘯ.-1', 'o': '-.-1', 'p': 'ᑫ..0', 'r': 'ᖇ---0', 's': 'ᔓ--1', 't': 'ᖶ.-0', 'u': 'ᑌ--1', 'v': 'ᕓ.-0', 'x': '᙮...1', 'y': 'ᖿ-0', 'z': '.0', 'w': 'ᕓᕓ-10', 'ñ': 'ᔑ--1', 'q': 'ᑫᔑ--0', 'l': 'ᒪᒧ..0',
+        '0': 'ᔆ-..00', '1': 'ᔑ.-11', '2': 'ᓭ..22', '3': 'ᒧ...33', '4': 'ᒪ-.-44', '5': 'ᐱ---55', '6': 'ᖷ..-66', '7': 'ᒍ-..77', '8': 'ᒐ--.88', '9': 'ᓬ.-.99'
+    };
+    var mapaInverso = {}; for (var letra in mapaMutante) { mapaInverso[mapaMutante[letra]] = letra; }
+    var abcMayusculas = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+    var abcMinusculas = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'];
+    var todosLosCaracteres = abcMayusculas.concat(abcMinusculas).concat(['0','1','2','3','4','5','6','7','8','9']);
+    var runasDisponibles = ['ᔑ', 'ᒧ', 'ᒪ', 'ᐱ', 'ᖷ', 'ᒍ', 'ᒐ', 'ᓬ', 'ᖋ', 'ᔕ', 'ᔮ', 'ᑫ', 'ᖇ', 'ᔓ', 'ᖶ', 'ᑌ', 'ᕓ', '᙮', 'ᖿ'];
+
+    function autenticarServidor() {
+        var emailInput = document.getElementById('userEmail').value.trim();
+        var passwordInput = document.getElementById('userPassword').value.trim();
+        fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailInput, password: passwordInput })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('authPanel').style.display = 'none';
+                document.getElementById('appPanel').style.display = 'block';
+            } else { alert("Acceso denegado."); }
+        })
+        .catch(err => { alert("Error de conexion con el servidor."); });
+    }
+
+    function cambiarModo(esEncriptar) {
+        modoEncriptar = esEncriptar;
+        document.getElementById('btnModoEncriptar').className = esEncriptar ? "mode-btn active" : "mode-btn";
+        document.getElementById('btnModoDescifrar').className = esEncriptar ? "mode-btn" : "mode-btn active";
+        document.getElementById('inputLabel').innerHTML = esEncriptar ? "Texto de Entrada:" : "Codigo del Idioma 🫃:";
+        document.getElementById('outputLabel').innerHTML = esEncriptar ? "Matriz del Idioma 🫃:" : "Mensaje Recuperado Decodificado:";
+        document.getElementById('inputText').value = ""; document.getElementById('outputText').value = "";
+    }
+
+    function mutarBloqueMatriz(texto, clave, esCifrar) {
+        var resultadoMencion = []; var semilla = 0;
+        for (var s = 0; s < clave.length; s++) { semilla += clave.charCodeAt(s); }
+        for (var i = 0; i < texto.length; i++) {
+            var c = texto[i]; var idx = todosLosCaracteres.indexOf(c);
+            if (idx !== -1) {
+                var salto = (semilla + i * 7) % todosLosCaracteres.length;
+                var nuevoIdx = esCifrar ? (idx + salto) % todosLosCaracteres.length : (idx - salto + todosLosCaracteres.length) % todosLosCaracteres.length;
+                resultadoMencion.push(todosLosCaracteres[nuevoIdx]);
+            } else { resultadoMencion.push(c); }
+        }
+        return resultadoMencion.join('');
+    }
+
+    function procesar() {
+        var input = document.getElementById('inputText').value.trim();
+        if (!input) { document.getElementById('outputText').value = "Entrada vacia."; return; }
+        var resultado = [];
+        if (modoEncriptar) {
+            var textoCifradoInterno = mutarBloqueMatriz(input, claveInmutableInterna, true);
+            var cuentaLetras = 0;
+            for (var i = 0; i < textoCifradoInterno.length; i++) {
+                var char = textoCifradoInterno[i];
+                if (char === ' ') {
+                    var idx = (i * 4 + 1) % runasDisponibles.length;
+resultado.push(runasDisponibles[idx] + "...1_");
+} else if (mapaMutante[char]) {
+resultado.push(mapaMutante[char]);
+} else { resultado.push(char); }
+}
+var resFin = [];
+for (var j = 0; j < resultado.length; j++) {
+var bAct = resultado[j]; resFin.push(bAct);
+if (bAct.indexOf('') === -1 && bAct.indexOf('-') !== -1) {
+var lOrig = mapaInverso[bAct]; var esMay = abcMayusculas.indexOf(lOrig) !== -1;
+var idxFalsa = (cuentaLetras * 5 + 3) % abcMayusculas.length;
+resFin.push("" + (esMay ? abcMayusculas[idxFalsa] : abcMinusculas[idxFalsa]));
+if (cuentaLetras % 2 === 0) { resFin.push(runasDisponibles[(cuentaLetras * 7 + 2) % runasDisponibles.length] + ((cuentaLetras % 2 === 0) ? ".-1" : "-.0") + "#"); }
+cuentaLetras++;
+}
+}
+resFin.reverse(); document.getElementById('outputText').value = resFin.join(' ');
+} else {
+var bloques = input.split(/\s+/); bloques.reverse(); var blLimpios = [];
+for (var k = 0; k < bloques.length; k++) {
+if (bloques[k].indexOf('') === 0 || bloques[k].indexOf('#') !== -1) continue; blLimpios.push(bloques[k]);
+}
+var textInternoMuta = "";
+for (var m = 0; m < blLimpios.length; m++) {
+if (blLimpios[m].indexOf('') !== -1) { textInternoMuta += ' '; }
+else if (mapaInverso[blLimpios[m]]) { textInternoMuta += mapaInverso[blLimpios[m]]; } else { textInternoMuta += blLimpios[m]; }
+}
+var textoDesencriptadoFinal = mutarBloqueMatriz(textInternoMuta, claveInmutableInterna, false);
+document.getElementById('outputText').value = textoDesencriptadoFinal;
+}
+}
+
+
+"""
+if name == 'main':
+try:
+import flask
+except ImportError:
+os.system(f'"{sys.executable}" -m pip install flask')
+webbrowser.open_new("http://127.0.0.1:5000")
+app.run(port=5000, debug=False)
